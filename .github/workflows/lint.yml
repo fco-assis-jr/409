@@ -26,7 +26,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+          run: composer install --no-interaction --no-scripts --no-progress --prefer-dist --ignore-platform-req=ext-oci8
           npm install
 
       - name: Run Pint

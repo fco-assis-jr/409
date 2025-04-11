@@ -38,7 +38,7 @@ jobs:
         run: npm run build
 
       - name: Install Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-req=ext-oci8
 
       - name: Copy Environment File
         run: cp .env.example .env

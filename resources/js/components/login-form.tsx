@@ -34,7 +34,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         id: `login-${Date.now()}`
       })
     }
-  }, [lastError])
+  }, [lastError, errors.usuario]) // <-- dependência adicionada
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>

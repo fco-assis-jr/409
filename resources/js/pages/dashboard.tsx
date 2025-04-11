@@ -1,20 +1,10 @@
 "use client"
 
+import { useEffect, useState, useRef } from "react"
+import axios from "axios"
+import { toast } from "sonner"
+
 import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -26,19 +16,50 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { useEffect, useState, useRef } from "react"
-import axios from "axios"
-import { toast } from "sonner"
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+
+// Tipos definidos para evitar 'any'
+type Funcionario = {
+  nome: string
+  matricula: string
+  perfil: string
+  codfilial: string
+  codusur: string
+  usuariobd: string
+}
+
+type Perfil = {
+  codigo: string
+  nome: string
+}
+
+type Filial = {
+  codfilial: string
+  local: string
+}
 
 export default function Page() {
   const [nomeBusca, setNomeBusca] = useState("")
-  const [resultados, setResultados] = useState<any[]>([])
+  const [resultados, setResultados] = useState<Funcionario[]>([])
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false)
-  const [funcionarioSelecionado, setFuncionarioSelecionado] = useState<any | null>(null)
+  const [funcionarioSelecionado, setFuncionarioSelecionado] = useState<Funcionario | null>(null)
   const [novaFilial, setNovaFilial] = useState<string>("")
   const [novoPerfil, setNovoPerfil] = useState<string>("")
-  const [perfisDisponiveis, setPerfisDisponiveis] = useState<any[]>([])
-  const [filiaisDisponiveis, setFiliaisDisponiveis] = useState<any[]>([])
+  const [perfisDisponiveis, setPerfisDisponiveis] = useState<Perfil[]>([])
+  const [filiaisDisponiveis, setFiliaisDisponiveis] = useState<Filial[]>([])
   const [foiSelecionado, setFoiSelecionado] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -58,61 +79,60 @@ export default function Page() {
         .then((res) => {
           setResultados(res.data)
 
-          const matchExato = res.data.some((f: any) => f.nome.toUpperCase() === nomeBusca.toUpperCase())
+          const matchExato = res.data.some(
+            (f: Funcionario) => f.nome.toUpperCase() === nomeBusca.toUpperCase()
+          )
           setMostrarSugestoes(!matchExato && !foiSelecionado)
         })
     }, 300)
-  }, [nomeBusca])
+  }, [nomeBusca, foiSelecionado]) // <- dependência adicionada
 
-  const selecionarFuncionario = (func: any) => {
+  const selecionarFuncionario = (func: Funcionario) => {
     setNomeBusca(func.nome)
     setFuncionarioSelecionado(func)
     setMostrarSugestoes(false)
     setFoiSelecionado(true)
   }
 
-    const handleTransferir = () => {
-      if (!funcionarioSelecionado || !novoPerfil || !novaFilial) {
-        toast.error("Preencha todos os campos antes de transferir.", {
+  const handleTransferir = () => {
+    if (!funcionarioSelecionado || !novoPerfil || !novaFilial) {
+      toast.error("Preencha todos os campos antes de transferir.", { duration: 8000 })
+      return
+    }
+
+    axios.post("/api/transfunc", {
+      perfil_codigo: novoPerfil,
+      matricula_destino: funcionarioSelecionado.matricula,
+      filial_destino: novaFilial,
+    }).then(res => {
+      const mensagem = res.data.mensagem || ""
+
+      const perfilEncontrado = perfisDisponiveis.find(p => p.codigo === novoPerfil)
+
+      setFuncionarioSelecionado({
+        ...funcionarioSelecionado,
+        codfilial: novaFilial,
+        perfil: perfilEncontrado ? perfilEncontrado.nome : novoPerfil,
+      })
+
+      if (mensagem.includes("RCA")) {
+        toast.warning("Transferido com alerta!", {
+          description: mensagem,
           duration: 8000,
         })
-        return
+      } else {
+        toast.success("Transferido com sucesso!", {
+          description: mensagem,
+          duration: 8000,
+        })
       }
-
-axios.post("/api/transfunc", {
-  perfil_codigo: novoPerfil,
-  matricula_destino: funcionarioSelecionado.matricula,
-  filial_destino: novaFilial,
-}).then(res => {
-  const mensagem = res.data.mensagem || ""
-
-  // Atualiza dados do funcionário
-  const perfilEncontrado = perfisDisponiveis.find(p => p.codigo === novoPerfil)
-  setFuncionarioSelecionado({
-    ...funcionarioSelecionado,
-    codfilial: novaFilial,
-    perfil: perfilEncontrado ? perfilEncontrado.nome : novoPerfil,
-  })
-
-  // Verifica se mensagem contém "SEM RCA"
-  if (mensagem.includes("RCA")) {
-    toast.warning("Transferido com alerta!", {
-      description: mensagem,
-      duration: 8000,
-    })
-  } else {
-    toast.success("Transferido com sucesso!", {
-      description: mensagem,
-      duration: 8000,
+    }).catch(err => {
+      toast.error("Erro ao Transferir funcionário", {
+        description: err.response?.data?.mensagem || "Erro inesperado.",
+        duration: 8000,
+      })
     })
   }
-}).catch(err => {
-  toast.error("Erro ao Transferir funcionário", {
-    description: err.response?.data?.mensagem || "Erro inesperado.",
-    duration: 8000,
-  })
-})
-    }
 
   return (
     <SidebarProvider>
@@ -139,27 +159,27 @@ axios.post("/api/transfunc", {
 
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           <div className="bg-muted/50 rounded-xl p-6 max-w-2xl w-full mx-auto mt-10 space-y-6">
-            <h2 className="text-xl font-semibold">Transferência de Funcionario</h2>
+            <h2 className="text-xl font-semibold">Transferência de Funcionário</h2>
 
             {/* Nome do funcionário */}
             <div className="grid gap-2 relative">
               <Label htmlFor="nome">Nome do Funcionário</Label>
-                <Input
-                  id="nome"
-                  placeholder="Digite nome ou matrícula"
-                  value={nomeBusca}
-                  onChange={(e) => {
-                    setNomeBusca(e.target.value)
-                    setFoiSelecionado(false)
-                  }}
-                  onFocus={() => {
-                    if (nomeBusca.length >= 3 && !foiSelecionado) {
-                      setMostrarSugestoes(true)
-                    }
-                  }}
-                  onBlur={() => setTimeout(() => setMostrarSugestoes(false), 300)}
-                  autoComplete="off"
-                />
+              <Input
+                id="nome"
+                placeholder="Digite nome ou matrícula"
+                value={nomeBusca}
+                onChange={(e) => {
+                  setNomeBusca(e.target.value)
+                  setFoiSelecionado(false)
+                }}
+                onFocus={() => {
+                  if (nomeBusca.length >= 3 && !foiSelecionado) {
+                    setMostrarSugestoes(true)
+                  }
+                }}
+                onBlur={() => setTimeout(() => setMostrarSugestoes(false), 300)}
+                autoComplete="off"
+              />
               {mostrarSugestoes && resultados.length > 0 && (
                 <ul className="absolute top-full left-0 z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-background text-sm shadow-md">
                   {resultados.map((f) => (
@@ -186,22 +206,20 @@ axios.post("/api/transfunc", {
                     <Label>Matrícula</Label>
                     <Input value={funcionarioSelecionado.matricula} disabled />
                   </div>
-
                   <div className="grid gap-2">
                     <Label>Filial Atual</Label>
                     <Input value={`Filial ${funcionarioSelecionado.codfilial}`} disabled />
                   </div>
-
                   <div className="grid gap-2">
                     <Label>RCA</Label>
                     <Input value={funcionarioSelecionado.codusur} disabled />
                   </div>
-                  <div className="grid gap-2 ">
+                  <div className="grid gap-2">
                     <Label>Perfil Atual</Label>
                     <Input value={funcionarioSelecionado.perfil} disabled />
                   </div>
-                    <div className="grid gap-2 md:col-span-2">
-                    <Label>login</Label>
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label>Login</Label>
                     <Input value={funcionarioSelecionado.usuariobd} disabled />
                   </div>
                 </div>
@@ -221,7 +239,7 @@ axios.post("/api/transfunc", {
                   {perfisDisponiveis.map((perfil) => (
                     <SelectItem key={perfil.codigo} value={perfil.codigo}>
                       {perfil.nome}
-                        <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-2 text-xs text-muted-foreground">
                         Cod: {perfil.codigo}
                       </span>
                     </SelectItem>
@@ -247,7 +265,9 @@ axios.post("/api/transfunc", {
               </Select>
             </div>
 
-            <Button className="w-full mt-4" onClick={handleTransferir}>Transferir</Button>
+            <Button className="w-full mt-4" onClick={handleTransferir}>
+              Transferir
+            </Button>
           </div>
         </div>
       </SidebarInset>

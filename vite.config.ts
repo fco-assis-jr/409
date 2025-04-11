@@ -22,13 +22,4 @@ export default defineConfig({
             'ziggy-js': resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
     },
-    server: {
-        host: '0.0.0.0',       // Permite acesso de fora (ex: 172.22.100.125)
-        port: 5173,            // Porta padrão do Vite
-        strictPort: true,      // Impede fallback automático se a porta estiver ocupada
-        cors: true,            // Libera CORS para outras origens
-        hmr: {
-            host: '172.22.100.125', // <-- importante! IP da sua máquina local na rede
-        },
-    },
 });

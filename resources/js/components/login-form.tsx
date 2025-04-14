@@ -1,14 +1,15 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useForm } from "@inertiajs/react"
-import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Eye, EyeOff } from "lucide-react"
+import { useForm } from "@inertiajs/react"
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
   const { data, setData, post, processing, errors } = useForm({
@@ -16,6 +17,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     senha: "",
   })
 
+  const [showPassword, setShowPassword] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -34,7 +36,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         id: `login-${Date.now()}`
       })
     }
-  }, [lastError, errors.usuario]) // <-- dependência adicionada
+  }, [lastError, errors.usuario])
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -52,6 +54,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                   Faça login no sistema com suas credenciais Winthor
                 </p>
               </div>
+
               <div className="grid gap-3">
                 <Label htmlFor="usuario">Usuário</Label>
                 <Input
@@ -63,21 +66,34 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                   required
                 />
               </div>
+
               <div className="grid gap-3">
                 <Label htmlFor="senha">Senha</Label>
-                <Input
-                  id="senha"
-                  type="password"
-                  value={data.senha}
-                  onChange={(e) => setData("senha", e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="senha"
+                    type={showPassword ? "text" : "password"}
+                    value={data.senha}
+                    onChange={(e) => setData("senha", e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label="Mostrar senha"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
+
               <Button type="submit" className="w-full" disabled={processing}>
                 {processing ? "Entrando..." : "Entrar"}
               </Button>
             </div>
           </form>
+
           <div className="bg-muted relative hidden md:block">
             <img
               src="/placeholder.svg"

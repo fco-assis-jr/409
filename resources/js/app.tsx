@@ -17,7 +17,7 @@ createInertiaApp({
     const root = createRoot(el)
 
     root.render(
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <>
           <App {...props} />
           <Toaster richColors closeButton position="top-right" />

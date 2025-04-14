@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Pcempr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LoginController extends Controller
 {
@@ -51,52 +52,68 @@ class LoginController extends Controller
 
     public function winthor(Request $request)
     {
-
         $host = gethostbyaddr($request->ip());
+        Log::info('Endereço IP recebido', ['ip' => $request->ip(), 'host' => $host]);
 
         $remover = ['.barataodacarne.local', '.barataodacarne'];
         $hostLimpo = str_replace($remover, '', $host);
 
         $terminal = strtoupper(explode('.', $hostLimpo)[0]);
+        Log::info('Terminal identificado', ['terminal' => $terminal]);
 
         $sql = /** @lang text */
             "
-            SELECT *
-            FROM PCEMPR e
-            WHERE e.MATRICULA IN (
-                SELECT codusuario
-                FROM PCCONTRO
-                WHERE codrotina = 409
-                  AND acesso = 'S'
-                  AND TO_CHAR(codusuario) IN (
-                    SELECT TO_CHAR(p.action)
-                    FROM V\$SESSION p
-                    WHERE p.terminal = ?
-                      AND p.action IS NOT NULL
-                      AND EXISTS (
-                          SELECT 1
-                          FROM PCEMPR
-                          WHERE TO_CHAR(matricula) = TO_CHAR(p.action)
-                          AND ROWNUM = 1
-                      )
+        SELECT *
+        FROM PCEMPR e
+        WHERE e.MATRICULA IN (
+            SELECT codusuario
+            FROM PCCONTRO
+            WHERE codrotina = 409
+              AND acesso = 'S'
+              AND TO_CHAR(codusuario) IN (
+                SELECT TO_CHAR(p.action)
+                FROM V\$SESSION p
+                WHERE p.terminal = ?
+                  AND p.action IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1
+                      FROM PCEMPR
+                      WHERE TO_CHAR(matricula) = TO_CHAR(p.action)
+                      AND ROWNUM = 1
                   )
-            )
-            AND e.SITUACAO = 'A'
-            AND ROWNUM = 1
-        ";
+              )
+        )
+        AND e.SITUACAO = 'A'
+        AND ROWNUM = 1
+    ";
+        Log::info('SQL: ', ['sql' => $sql]);
+        try {
+            $usuarios = Pcempr::fromQuery($sql, [$terminal]);
+            $usuario = $usuarios[0] ?? null;
 
-        $usuarios = Pcempr::fromQuery($sql, [$terminal]);
-        $usuario = $usuarios[0] ?? null;
+            if (!$usuario) {
+                Log::warning('Usuário não encontrado ou sem permissão', ['terminal' => $terminal]);
 
-        if (!$usuario) {
+                return back()->withErrors([
+                    'terminal' => 'Sessão não encontrada para este terminal ou acesso negado.',
+                ]);
+            }
+
+            Auth::guard('oracle')->login($usuario);
+            Log::info('Login efetuado com sucesso', ['usuario' => $usuario->MATRICULA ?? null]);
+
+            return redirect()->route('dashboard');
+
+        } catch (\Throwable $e) {
+            Log::error('Erro ao executar login do terminal', [
+                'terminal' => $terminal,
+                'exception' => $e->getMessage(),
+            ]);
+
             return back()->withErrors([
-                'terminal' => 'Sessão não encontrada para este terminal ou acesso negado.',
+                'terminal' => 'Erro interno ao autenticar. Contate o suporte.',
             ]);
         }
-
-        Auth::guard('oracle')->login($usuario);
-
-        return redirect()->route('dashboard');
     }
 
     public function logout(Request $request)

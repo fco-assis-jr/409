@@ -52,13 +52,7 @@ class LoginController extends Controller
 
     public function winthor(Request $request)
     {
-        $host = gethostbyaddr($request->ip());
-        Log::info('Endereço IP recebido', ['ip' => $request->ip(), 'host' => $host]);
-
-        $remover = ['.barataodacarne.local', '.barataodacarne'];
-        $hostLimpo = str_replace($remover, '', $host);
-
-        $terminal = strtoupper(explode('.', $hostLimpo)[0]);
+        $terminal = strtoupper($request->query('terminal'));
         Log::info('Terminal identificado', ['terminal' => $terminal]);
 
         $sql = /** @lang text */

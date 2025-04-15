@@ -4,7 +4,8 @@
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
+/public/logs/
+storage/*.key
 /storage/pail
 /vendor
 .env
@@ -22,4 +23,3 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-logs/

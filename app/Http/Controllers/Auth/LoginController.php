@@ -53,7 +53,6 @@ class LoginController extends Controller
     public function winthor(Request $request)
     {
         $terminal = strtoupper($request->query('terminal'));
-        Log::info('Terminal identificado', ['terminal' => $terminal]);
 
         $sql = /** @lang text */
             "
@@ -80,13 +79,12 @@ class LoginController extends Controller
         AND e.SITUACAO = 'A'
         AND ROWNUM = 1
     ";
-        Log::info('SQL: ', ['sql' => $sql]);
+
         try {
             $usuarios = Pcempr::fromQuery($sql, [$terminal]);
             $usuario = $usuarios[0] ?? null;
 
             if (!$usuario) {
-                Log::warning('Usuário não encontrado ou sem permissão', ['terminal' => $terminal]);
 
                 return back()->withErrors([
                     'terminal' => 'Sessão não encontrada para este terminal ou acesso negado.',
@@ -94,7 +92,6 @@ class LoginController extends Controller
             }
 
             Auth::guard('oracle')->login($usuario);
-            Log::info('Login efetuado com sucesso', ['usuario' => $usuario->MATRICULA ?? null]);
 
             return redirect()->route('dashboard');
 

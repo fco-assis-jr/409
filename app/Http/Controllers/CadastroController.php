@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Pcempr;
 use App\Models\Pcfilial;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class CadastroController extends Controller
 {
@@ -65,17 +67,20 @@ class CadastroController extends Controller
         $funcionario = $request->input('matricula_destino');
         $filial = $request->input('filial_destino');
 
+        $usuarioLogado = Auth::guard('oracle')->user();
+        $matriculaLogado = $usuarioLogado->matricula ?? 'desconhecido';
+
         try {
             $pdo = DB::connection('oracle')->getPdo();
 
             $stmt = $pdo->prepare("
-                DECLARE
-                    V_MSG VARCHAR2(4000);
-                BEGIN
-                    BDC_PRC_TRANSFUNC(:perfil, :funcionario, :filial, V_MSG);
-                    :mensagem := V_MSG;
-                END;
-            ");
+            DECLARE
+                V_MSG VARCHAR2(4000);
+            BEGIN
+                BDC_PRC_TRANSFUNC(:perfil, :funcionario, :filial, V_MSG);
+                :mensagem := V_MSG;
+            END;
+        ");
 
             $stmt->bindParam(':perfil', $perfil);
             $stmt->bindParam(':funcionario', $funcionario);
@@ -84,8 +89,21 @@ class CadastroController extends Controller
 
             $stmt->execute();
 
+            $logPath = public_path('logs');
+            if (!File::exists($logPath)) {
+                File::makeDirectory($logPath, 0755, true);
+            }
+
+            $logFile = $logPath . '/transfunc-log.txt';
+            $logMessage = now() . " - Usuário: {$matriculaLogado} - Perfil: {$perfil}, Funcionário: {$funcionario}, Filial: {$filial}, Mensagem: {$mensagem}" . PHP_EOL;
+            File::append($logFile, $logMessage);
+
             return response()->json(['mensagem' => $mensagem]);
         } catch (\Exception $e) {
+            $logFile = public_path('logs/transfunc-log.txt');
+            $logMessage = now() . " - ERRO - Usuário: {$matriculaLogado} - {$e->getMessage()}" . PHP_EOL;
+            File::append($logFile, $logMessage);
+
             return response()->json(['mensagem' => $e->getMessage()], 500);
         }
     }

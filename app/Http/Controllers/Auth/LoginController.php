@@ -47,7 +47,7 @@ class LoginController extends Controller
 
         Auth::guard('oracle')->login($user);
 
-        return redirect()->route('dashboard');
+        return redirect()->route('home');
     }
 
     public function winthor(Request $request)
@@ -86,14 +86,12 @@ class LoginController extends Controller
 
             if (!$usuario) {
 
-                return back()->withErrors([
-                    'terminal' => 'Sessão não encontrada para este terminal ou acesso negado.',
-                ]);
+                return redirect()->route('login');
             }
 
             Auth::guard('oracle')->login($usuario);
-
-            return redirect()->route('dashboard');
+            Log::info('Redirecionando para dashboard após login via terminal.');
+            return redirect()->route('home');
 
         } catch (\Throwable $e) {
             Log::error('Erro ao executar login do terminal', [
@@ -101,9 +99,8 @@ class LoginController extends Controller
                 'exception' => $e->getMessage(),
             ]);
 
-            return back()->withErrors([
-                'terminal' => 'Erro interno ao autenticar. Contate o suporte.',
-            ]);
+            return redirect()->route('login');
+
         }
     }
 

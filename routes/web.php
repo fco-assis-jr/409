@@ -38,7 +38,7 @@ Route::middleware('auth:oracle')->group(function () {
         return Inertia::render('dashboard', [
             'usuario' => Auth::guard('oracle')->user(),
         ]);
-    })->name('dashboard');
+    })->name('home');
 
     // API interna (prefixada com /api)
     Route::prefix('api')->group(function () {

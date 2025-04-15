@@ -1,0 +1,3 @@
+2025-04-15 15:16:30 - Usuário: 2335 - Perfil: 9846, Funcionário: 5601, Filial: 14, Mensagem: FUNCIONÁRIO 5601 | FILIAL 14
+2025-04-15 15:18:27 - Usuário: 2335 - Perfil: 9845, Funcionário: 5601, Filial: 8, Mensagem: FUNCIONÁRIO 5601 | FILIAL 8
+2025-04-15 11:22:20 - Usuário: 2335 - Perfil: 9847, Funcionário: 5601, Filial: 13, Mensagem: FUNCIONÁRIO 5601 | FILIAL 13

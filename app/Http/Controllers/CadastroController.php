@@ -21,7 +21,7 @@ class CadastroController extends Controller
                 usuariobd,
                 CODFILIAL,
                 CASE CODSETOR
-                    WHEN 21 THEN 'OPERADOR(A)'
+                    WHEN 21 THEN 'OPERADOR(A) / RECEPCAO'
                     WHEN 26 THEN 'FISCAL'
                     ELSE ''
                 END AS PERFIL,

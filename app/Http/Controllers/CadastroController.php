@@ -73,6 +73,12 @@ class CadastroController extends Controller
         try {
             $pdo = DB::connection('oracle')->getPdo();
 
+            // Buscar a filial de origem do perfil
+            $filial_origem = DB::connection('oracle')
+                ->table('PCEMPR')
+                ->where('MATRICULA', $perfil)
+                ->value('CODFILIAL');
+
             $stmt = $pdo->prepare("
             DECLARE
                 V_MSG VARCHAR2(4000);
@@ -94,11 +100,22 @@ class CadastroController extends Controller
                 File::makeDirectory($logPath, 0755, true);
             }
 
+            $now = now()->format('d-m-Y H:i:s');
+            $ip = $request->ip();
             $logFile = $logPath . '/transfunc-log.txt';
-            $logMessage = now() . " - Usuário: {$matriculaLogado} - Perfil: {$perfil}, Funcionário: {$funcionario}, Filial: {$filial}, Mensagem: {$mensagem}" . PHP_EOL;
+
+            $logMessage = <<<LOG
+            ================================================================================
+            [{$now}] - Usuário: {$matriculaLogado} | IP: {$ip}
+            Retorno : {$mensagem}
+            ================================================================================
+
+            LOG;
+
             File::append($logFile, $logMessage);
 
             return response()->json(['mensagem' => $mensagem]);
+
         } catch (\Exception $e) {
             $logFile = public_path('logs/transfunc-log.txt');
             $logMessage = now() . " - ERRO - Usuário: {$matriculaLogado} - {$e->getMessage()}" . PHP_EOL;

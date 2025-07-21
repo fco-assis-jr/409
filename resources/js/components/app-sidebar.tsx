@@ -1,4 +1,4 @@
-import { Upload } from 'lucide-react'
+import { Upload , FileText  } from 'lucide-react'
 import * as React from 'react'
 import { usePage } from '@inertiajs/react'
 import { NavMain } from '@/components/nav-main'
@@ -30,13 +30,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       email: user.email ?? 'usuario@empresa.com',
       avatar: '',
     },
-teams: [
-  {
-    name: '409 - Baratão da Carne',
-    logo: '/logo.ico',
-    plan: 'Transferencia de Funcionario',
-  },
-],
+    teams: [
+      {
+        name: '409 - Baratão da Carne',
+        logo: '/logo.ico',
+        plan: 'Transferencia de Funcionario',
+      },
+    ],
     navMain: [
       {
         title: 'Transferir',
@@ -44,7 +44,12 @@ teams: [
         icon: Upload,
         isActive: false,
       },
-
+      {
+        title: 'Logs',
+        url: '/logs/transfunc',
+        icon: FileText, // você pode usar outro ícone aqui, como "List" ou "FileText"
+        isActive: false,
+      },
     ],
   }
 
@@ -55,7 +60,6 @@ teams: [
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

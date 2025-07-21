@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CadastroController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -13,10 +14,10 @@ use Inertia\Inertia;
 */
 
 // Rota principal (redireciona para login)
-Route::get('/', fn () => Inertia::render('login'));
+Route::get('/', fn() => Inertia::render('login'));
 
 // Página de login
-Route::get('/login', fn () => Inertia::render('login'))->name('login');
+Route::get('/login', fn() => Inertia::render('login'))->name('login');
 
 // Envio do formulário de login
 Route::post('/login', [LoginController::class, 'login'])->name('login.post');
@@ -47,6 +48,20 @@ Route::middleware('auth:oracle')->group(function () {
         Route::get('/funcionarios', [CadastroController::class, 'buscarFuncionarios']);
         Route::post('/transfunc', [CadastroController::class, 'transfunc']);
     });
+
+    Route::get('/logs/transfunc', function () {
+        $logPath = public_path('logs/transfunc-log.txt');
+
+        if (!File::exists($logPath)) {
+            $conteudo = 'Arquivo de log não encontrado.';
+        } else {
+            $conteudo = File::get($logPath);
+        }
+
+        return Inertia::render('log-transfunc', [
+            'conteudo' => $conteudo,
+        ]);
+    })->name('logs.transfunc');
 
     // Logout
     Route::get('/logout', [LoginController::class, 'logout'])->name('logout');

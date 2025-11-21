@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\File;
 
 class CadastroController extends Controller
 {
+    private const PERFIL_FISCAL = 9845;
+    private const PERFIL_OPERADOR = 9846;
+    private const PERFIS_FISCAL = [1, 2, 5];
+    private const PERFIS_OPERADOR = [1];
+
     public function buscarFuncionarios(Request $request)
     {
         $termo = strtoupper($request->input('nome'));
@@ -71,15 +76,27 @@ class CadastroController extends Controller
         $matriculaLogado = $usuarioLogado->matricula ?? 'desconhecido';
 
         try {
-            $pdo = DB::connection('oracle')->getPdo();
+            $mensagem = $this->executarTransferencia($perfil, $funcionario, $filial);
 
-            // Buscar a filial de origem do perfil
-            $filial_origem = DB::connection('oracle')
-                ->table('PCEMPR')
-                ->where('MATRICULA', $perfil)
-                ->value('CODFILIAL');
+            $this->registrarLog($request, $matriculaLogado, $mensagem);
 
-            $stmt = $pdo->prepare("
+            $mensagem = $this->processarLojaConc($funcionario, $filial, $mensagem);
+
+            $mensagem = $this->configurarPerfisUsuario($perfil, $funcionario, $mensagem);
+
+            return response()->json(['mensagem' => $mensagem]);
+
+        } catch (\Exception $e) {
+            $this->registrarErro($matriculaLogado, $e->getMessage());
+            return response()->json(['mensagem' => $e->getMessage()], 500);
+        }
+    }
+
+    private function executarTransferencia(int $perfil, int $funcionario, int $filial): string
+    {
+        $pdo = DB::connection('oracle')->getPdo();
+
+        $stmt = $pdo->prepare("
             DECLARE
                 V_MSG VARCHAR2(4000);
             BEGIN
@@ -88,40 +105,141 @@ class CadastroController extends Controller
             END;
         ");
 
-            $stmt->bindParam(':perfil', $perfil);
-            $stmt->bindParam(':funcionario', $funcionario);
-            $stmt->bindParam(':filial', $filial);
-            $stmt->bindParam(':mensagem', $mensagem, \PDO::PARAM_INPUT_OUTPUT, 4000);
+        $stmt->bindParam(':perfil', $perfil);
+        $stmt->bindParam(':funcionario', $funcionario);
+        $stmt->bindParam(':filial', $filial);
+        $stmt->bindParam(':mensagem', $mensagem, \PDO::PARAM_INPUT_OUTPUT, 4000);
 
-            $stmt->execute();
+        $stmt->execute();
 
-            $logPath = public_path('logs');
-            if (!File::exists($logPath)) {
-                File::makeDirectory($logPath, 0755, true);
-            }
+        return $mensagem;
+    }
 
-            $now = now()->format('d-m-Y H:i:s');
-            $ip = $request->ip();
-            $logFile = $logPath . '/transfunc-log.txt';
+    private function registrarLog(Request $request, string $matriculaLogado, string $mensagem): void
+    {
+        $logPath = public_path('logs');
 
-            $logMessage = <<<LOG
-            ================================================================================
-            [{$now}] - Usuário: {$matriculaLogado} | IP: {$ip}
-            Retorno : {$mensagem}
-            ================================================================================
-
-            LOG;
-
-            File::append($logFile, $logMessage);
-
-            return response()->json(['mensagem' => $mensagem]);
-
-        } catch (\Exception $e) {
-            $logFile = public_path('logs/transfunc-log.txt');
-            $logMessage = now() . " - ERRO - Usuário: {$matriculaLogado} - {$e->getMessage()}" . PHP_EOL;
-            File::append($logFile, $logMessage);
-
-            return response()->json(['mensagem' => $e->getMessage()], 500);
+        if (!File::exists($logPath)) {
+            File::makeDirectory($logPath, 0755, true);
         }
+
+        $now = now()->format('d-m-Y H:i:s');
+        $ip = $request->ip();
+        $logFile = $logPath . '/transfunc-log.txt';
+
+        $logMessage = <<<LOG
+        ================================================================================
+        [{$now}] - Usuário: {$matriculaLogado} | IP: {$ip}
+        Retorno : {$mensagem}
+        ================================================================================
+
+        LOG;
+
+        File::append($logFile, $logMessage);
+    }
+
+    private function processarLojaConc(int $funcionario, int $filial, string $mensagem): string
+    {
+        $loja_conc = DB::connection('conc')
+            ->table('loja')
+            ->where('codigo_loja', $filial)
+            ->first();
+
+        if (empty($loja_conc)) {
+            return $mensagem;
+        }
+
+        $usuario_loja = DB::connection('conc')
+            ->table('usuario_loja')
+            ->where('login', $funcionario)
+            ->where('codigo_loja', $filial)
+            ->first();
+
+        if (empty($usuario_loja)) {
+            DB::connection('conc')
+                ->table('usuario_loja')
+                ->insert([
+                    'login' => $funcionario,
+                    'codigo_loja' => $filial
+                ]);
+
+            $mensagem .= " | Usuário adicionado na loja {$filial}.";
+        }
+
+        return $mensagem;
+    }
+
+    private function configurarPerfisUsuario(int $perfil, int $funcionario, string $mensagem): string
+    {
+        if ($perfil === self::PERFIL_FISCAL) {
+            return $this->configurarPerfisFiscal($funcionario, $mensagem);
+        }
+
+        if ($perfil === self::PERFIL_OPERADOR) {
+            return $this->configurarPerfisOperador($funcionario, $mensagem);
+        }
+
+        return $mensagem;
+    }
+
+    private function configurarPerfisFiscal(int $funcionario, string $mensagem): string
+    {
+        $usuario = $this->buscarUsuarioConc($funcionario);
+
+        if (!$usuario) {
+            return $mensagem;
+        }
+
+        $this->sobrescreverPerfis($usuario->id, self::PERFIS_FISCAL);
+
+        return $mensagem . " | Perfis Fiscal (1, 2, 5) configurados.";
+    }
+
+    private function configurarPerfisOperador(int $funcionario, string $mensagem): string
+    {
+        $usuario = $this->buscarUsuarioConc($funcionario);
+
+        if (!$usuario) {
+            return $mensagem;
+        }
+
+        $this->sobrescreverPerfis($usuario->id, self::PERFIS_OPERADOR);
+
+        return $mensagem . " | Perfil Operador (1) configurado.";
+    }
+
+    private function buscarUsuarioConc(int $funcionario)
+    {
+        return DB::connection('conc')
+            ->table('usuario_security')
+            ->select('id', 'login')
+            ->where('login', $funcionario)
+            ->first();
+    }
+
+    private function sobrescreverPerfis(int $idUsuario, array $perfis): void
+    {
+        // Remove todos os perfis existentes
+        DB::connection('conc')
+            ->table('usuario_perfil')
+            ->where('id_usuario', $idUsuario)
+            ->delete();
+
+        // Insere os novos perfis
+        foreach ($perfis as $idPerfil) {
+            DB::connection('conc')
+                ->table('usuario_perfil')
+                ->insert([
+                    'id_usuario' => $idUsuario,
+                    'id_perfil' => $idPerfil
+                ]);
+        }
+    }
+
+    private function registrarErro(string $matriculaLogado, string $erro): void
+    {
+        $logFile = public_path('logs/transfunc-log.txt');
+        $logMessage = now() . " - ERRO - Usuário: {$matriculaLogado} - {$erro}" . PHP_EOL;
+        File::append($logFile, $logMessage);
     }
 }

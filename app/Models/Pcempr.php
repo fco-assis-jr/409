@@ -19,7 +19,7 @@ class Pcempr extends Model implements AuthenticatableContract
     protected $connection = 'oracle';
 
     protected $fillable = [
-        'matricula', 'codfilial', 'nome', 'usuariobd', 'codsetor', 'situacao' , 'codusur'
+        'matricula', 'codfilial', 'nome', 'usuariobd', 'codsetor', 'situacao', 'codusur', 'email'
     ];
 
     public function getAuthIdentifierName()

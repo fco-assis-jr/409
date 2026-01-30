@@ -32,18 +32,18 @@ export interface SharedData {
 }
 
 export interface User {
-    id: number;
-    name: string;
+    matricula: number;
+    nome: string;
     email: string;
+    codfilial: number;
+    codsetor: number;
+    codusur?: number;
+
+    // Campos opcionais para compatibilidade
+    id?: number;
+    name?: string;
     avatar?: string;
-    email_verified_at: string | null;
-    created_at: string;
-    updated_at: string;
-
-    matricula?: number
-    codfilial?: number
-    codsetor?: number
-
-
-    [key: string]: unknown; // This allows for additional properties...
+    email_verified_at?: string | null;
+    created_at?: string;
+    updated_at?: string;
 }

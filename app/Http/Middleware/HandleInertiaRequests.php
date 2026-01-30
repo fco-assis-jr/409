@@ -39,12 +39,21 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user ? [
+                    'matricula' => $user->matricula,
+                    'nome' => $user->nome,
+                    'email' => $user->email,
+                    'codfilial' => $user->codfilial,
+                    'codsetor' => $user->codsetor,
+                    'codusur' => $user->codusur,
+                ] : null,
             ],
             'ziggy' => fn (): array => [
                 ...(new Ziggy)->toArray(),

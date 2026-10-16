@@ -66,6 +66,100 @@ class CadastroController extends Controller
         return response()->json($filiais);
     }
 
+    // Consulta exclusiva para conferentes ativos do setor 15.
+    public function conferentes(Request $request)
+    {
+        $busca = trim((string) $request->input('nome', ''));
+        if (mb_strlen($busca) < 3) {
+            return response()->json([]);
+        }
+
+        $conferentes = Pcempr::selectRaw('NOME as nome, MATRICULA as matricula, CODFILIAL as codfilial, CODUSUR as codusur, USUARIOBD as usuariobd')
+            ->where('SITUACAO', 'A')
+            ->where('CODSETOR', 15)
+            ->where(function ($query) use ($busca) {
+                $query->whereRaw('UPPER(NOME) LIKE UPPER(?)', ["%{$busca}%"])
+                    ->orWhereRaw('TO_CHAR(MATRICULA) LIKE ?', ["%{$busca}%"]);
+            })
+            ->limit(20)
+            ->get();
+
+        return response()->json($conferentes);
+    }
+
+    // Transferência independente: não chama transfunc e não altera perfis na base conc.
+    public function transferirConferente(Request $request)
+    {
+        $dados = $request->validate([
+            'matricula_destino' => ['required', 'integer'],
+            'filial_destino' => ['required', 'integer'],
+        ]);
+
+        $matricula = (int) $dados['matricula_destino'];
+        $filial = (int) $dados['filial_destino'];
+
+        $filialExiste = Pcfilial::where('CODIGO', $filial)
+            ->whereNotIn('CODIGO', [99, 50, 51, 52, 53, 1, 2, 11])
+            ->whereNotNull('CODDOCNF')
+            ->whereNull('DTEXCLUSAO')
+            ->exists();
+
+        if (!$filialExiste) {
+            return response()->json(['mensagem' => 'Filial de destino inválida.'], 422);
+        }
+
+        try {
+            $usuario = Auth::guard('oracle')->user();
+            $matriculaLogado = $usuario->matricula ?? null;
+            if (!is_numeric($matriculaLogado)) {
+                return response()->json(['mensagem' => 'Não foi possível identificar a matrícula do usuário logado.'], 422);
+            }
+
+            DB::connection('oracle')->transaction(function () use ($matricula, $filial, $matriculaLogado) {
+                $conferente = DB::connection('oracle')->table('PCEMPR')
+                    ->where('MATRICULA', $matricula)
+                    ->where('SITUACAO', 'A')
+                    ->where('CODSETOR', 15)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$conferente) {
+                    throw new \DomainException('Conferente ativo do setor 15 não encontrado.');
+                }
+
+                // Altera apenas as liberações de filiais da rotina 131.
+                DB::connection('oracle')->table('PCLIB')
+                    ->where('CODFUNC', $matricula)
+                    ->where('CODTABELA', 1)
+                    ->delete();
+
+                DB::connection('oracle')->table('PCLIB')->insert([
+                    'CODFUNC' => $matricula,
+                    'CODTABELA' => 1,
+                    'CODIGOA' => (string) $filial,
+                    'CODIGON' => 0,
+                    'CODFUNC_LIB' => (int) $matriculaLogado,
+                    'DATA_LIB' => DB::raw('SYSDATE'),
+                ]);
+
+                DB::connection('oracle')->table('PCEMPR')
+                    ->where('MATRICULA', $matricula)
+                    ->update(['CODFILIAL' => $filial]);
+            });
+
+            $mensagem = "Conferente {$matricula} transferido para a filial {$filial}, com liberação atualizada na rotina 131.";
+            $this->registrarLog($request, (string) $matriculaLogado, $mensagem);
+            return response()->json(['mensagem' => $mensagem]);
+        } catch (\DomainException $e) {
+            return response()->json(['mensagem' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Falha ao transferir conferente', [
+                'matricula' => $matricula, 'filial' => $filial, 'erro' => $e->getMessage(),
+            ]);
+            return response()->json(['mensagem' => 'Não foi possível transferir o conferente.'], 500);
+        }
+    }
+
     public function transfunc(Request $request)
     {
         $perfil = $request->input('perfil_codigo');

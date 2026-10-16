@@ -45,6 +45,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         isActive: false,
       },
       {
+        title: 'Transferir Conferente',
+        url: '/transferir-conferente',
+        icon: Upload,
+        isActive: false,
+      },
+      {
         title: 'Logs',
         url: '/logs/transfunc',
         icon: FileText, // você pode usar outro ícone aqui, como "List" ou "FileText"

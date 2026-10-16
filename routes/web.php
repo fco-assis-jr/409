@@ -39,12 +39,16 @@ Route::middleware('auth:oracle')->group(function () {
         return Inertia::render('dashboard');
     })->name('home');
 
+    Route::get('/transferir-conferente', fn() => Inertia::render('TransferirConferente'))->name('transferir.conferente');
+
     // API interna (prefixada com /api)
     Route::prefix('api')->group(function () {
         Route::get('/perfis', [CadastroController::class, 'perfis']);
         Route::get('/filiais', [CadastroController::class, 'filiais']);
         Route::get('/funcionarios', [CadastroController::class, 'buscarFuncionarios']);
         Route::post('/transfunc', [CadastroController::class, 'transfunc']);
+        Route::get('/conferentes', [CadastroController::class, 'conferentes']);
+        Route::post('/transferir-conferente', [CadastroController::class, 'transferirConferente']);
     });
 
     Route::get('/logs/transfunc', function () {

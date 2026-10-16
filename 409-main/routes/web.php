@@ -1,0 +1,70 @@
+<?php
+
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CadastroController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+/*
+|--------------------------------------------------------------------------
+| Rotas Públicas (sem autenticação)
+|--------------------------------------------------------------------------
+*/
+
+// Rota principal (redireciona para login)
+Route::get('/', fn() => Inertia::render('login'));
+
+// Página de login
+Route::get('/login', fn() => Inertia::render('login'))->name('login');
+
+// Envio do formulário de login
+Route::post('/login', [LoginController::class, 'login'])->name('login.post');
+
+//Login Winthor
+Route::get('/winthor', [LoginController::class, 'winthor'])->name('winthor');
+
+
+/*
+|--------------------------------------------------------------------------
+| Rotas Protegidas (autenticadas com 'auth:oracle')
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth:oracle')->group(function () {
+
+    // Home
+    Route::get('/home', function () {
+        return Inertia::render('dashboard');
+    })->name('home');
+
+    Route::get('/transferir-conferente', fn() => Inertia::render('TransferirConferente'))->name('transferir.conferente');
+
+    // API interna (prefixada com /api)
+    Route::prefix('api')->group(function () {
+        Route::get('/perfis', [CadastroController::class, 'perfis']);
+        Route::get('/filiais', [CadastroController::class, 'filiais']);
+        Route::get('/funcionarios', [CadastroController::class, 'buscarFuncionarios']);
+        Route::post('/transfunc', [CadastroController::class, 'transfunc']);
+        Route::get('/conferentes', [CadastroController::class, 'conferentes']);
+        Route::post('/transferir-conferente', [CadastroController::class, 'transferirConferente']);
+    });
+
+    Route::get('/logs/transfunc', function () {
+        $logPath = public_path('logs/transfunc-log.txt');
+
+        if (!File::exists($logPath)) {
+            $conteudo = 'Arquivo de log não encontrado.';
+        } else {
+            $conteudo = File::get($logPath);
+        }
+
+        return Inertia::render('log-transfunc', [
+            'conteudo' => $conteudo,
+        ]);
+    })->name('logs.transfunc');
+
+    // Logout
+    Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
+});
